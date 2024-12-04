@@ -10,4 +10,5 @@ public class AuthenticationResponse {
 
     private String token;
     private String messageResponse;
+    private String user;
 }

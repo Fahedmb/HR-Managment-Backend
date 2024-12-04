@@ -23,7 +23,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class AuthenticationController {
 
     private final UserService userService;
@@ -38,50 +38,33 @@ public class AuthenticationController {
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<Void> authenticate(@RequestBody AuthenticationRequest request, HttpServletResponse response) {
+    public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest request) {
         // Authenticate the user and retrieve the JWT token
         AuthenticationResponse authResponse = userService.authenticate(request);
 
-        // Create the JWT cookie (without SameSite)
-        Cookie jwtCookie = new Cookie("jwt", authResponse.getToken());
-        jwtCookie.setHttpOnly(true);
-        jwtCookie.setSecure(true);  // Use secure cookies for HTTPS only
-        jwtCookie.setPath("/");     // Cookie is accessible for the entire application
-        jwtCookie.setMaxAge(60 * 60); // 1 hour expiration time
+        // Get the user data (e.g., username or userId)
+        UserDTO user = userService.getUserByEmail(request.getEmail());
 
-        // Optional: Set domain explicitly if necessary (e.g., for subdomains)
-        // jwtCookie.setDomain("localhost"); // Set domain if needed
+        // Ensure that the token and user data are correctly included in the response
+        AuthenticationResponse responseWithUser = new AuthenticationResponse(authResponse.getToken(), "Authentication successful", user.getUsername());
 
-        // Add the JWT cookie to the response
-        response.addCookie(jwtCookie);
-
-        // Manually set the SameSite attribute using the Set-Cookie header
-        String cookieValue = "jwt=" + authResponse.getToken() +
-                "; HttpOnly; Secure; Path=/; Max-Age=3600; SameSite=None";
-        response.setHeader("Set-Cookie", cookieValue);
-
-        // For debugging purposes, log the Set-Cookie header to verify the correct values
-        System.out.println("Set-Cookie header: " + cookieValue);
-
-        // Return a successful response
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(responseWithUser);
     }
-
-
-
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletResponse response) {
+        // Clear the JWT cookie or session here
         Cookie jwtCookie = new Cookie("jwt", null);
         jwtCookie.setHttpOnly(true);
-        jwtCookie.setSecure(true);
+        jwtCookie.setSecure(true);  // Ensure 'secure' is true if using HTTPS
         jwtCookie.setPath("/");
-        jwtCookie.setMaxAge(0);
+        jwtCookie.setMaxAge(0);  // Expire the cookie
 
-        response.addCookie(jwtCookie);
+        response.addCookie(jwtCookie);  // Add the expired cookie to the response
 
         return ResponseEntity.ok().build();
     }
+
 }
 
 

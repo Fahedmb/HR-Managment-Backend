@@ -52,9 +52,6 @@ public class SecurityConfiguration {
                                 .requestMatchers(
                                         "/auth/**",
                                         "/user/**",
-                                        "/subcategories",
-                                        "/categories",
-                                        "/user/profile/images",
                                         "/swagger-ui.html",
                                         "/swagger-ui/**",
                                         "/v3/api-docs/**",
@@ -63,13 +60,7 @@ public class SecurityConfiguration {
                                         "/swagger-ui/index.html",
                                         "/swagger-ui/**",
                                         "/webjars/**",
-                                        "/actuator/**",
-                                        "/grades/**",
-                                        "/courses/**",
-                                        "/categories/**",
-                                        "/certificates/**",
-                                        "/requests/**",
-                                        "/subcategories/**"
+                                        "/actuator/**"
                                 ).permitAll()
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .anyRequest().authenticated())
