@@ -1,6 +1,6 @@
 package com.react.project.Controller;
 
-import com.react.project.dto.UserDTO;
+import com.react.project.DTO.UserDTO;
 import com.react.project.Service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

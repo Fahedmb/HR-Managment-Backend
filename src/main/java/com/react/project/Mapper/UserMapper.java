@@ -1,7 +1,7 @@
 package com.react.project.Mapper;
 
 import com.react.project.Model.User;
-import com.react.project.dto.UserDTO;
+import com.react.project.DTO.UserDTO;
 
 public class UserMapper {
 

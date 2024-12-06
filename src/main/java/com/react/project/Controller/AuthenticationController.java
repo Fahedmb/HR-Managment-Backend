@@ -2,7 +2,7 @@ package com.react.project.Controller;
 
 import com.react.project.DTO.RegisterRequest;
 import com.react.project.DTO.RegisterResponse;
-import com.react.project.dto.UserDTO;
+import com.react.project.DTO.UserDTO;
 import com.react.project.DTO.AuthenticationRequest;
 import com.react.project.DTO.AuthenticationResponse;
 import com.react.project.Exception.UserException;

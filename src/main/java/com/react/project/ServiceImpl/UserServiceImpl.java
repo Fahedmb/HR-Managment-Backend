@@ -9,7 +9,7 @@ import com.react.project.Exception.UserException;
 import com.react.project.Model.User;
 import com.react.project.Repository.UserRepository;
 import com.react.project.Service.UserService;
-import com.react.project.dto.UserDTO;
+import com.react.project.DTO.UserDTO;
 import com.react.project.Service.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

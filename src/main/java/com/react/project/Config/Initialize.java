@@ -2,7 +2,7 @@ package com.react.project.Config;
 
 import com.react.project.DTO.RegisterRequest;
 import com.react.project.DTO.RegisterResponse;
-import com.react.project.dto.UserDTO;
+import com.react.project.DTO.UserDTO;
 import com.react.project.Enumirator.Role;
 import com.react.project.Service.UserService;
 import lombok.RequiredArgsConstructor;

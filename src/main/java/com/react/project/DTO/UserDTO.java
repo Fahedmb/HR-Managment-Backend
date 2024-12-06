@@ -1,4 +1,4 @@
-package com.react.project.dto;
+package com.react.project.DTO;
 
 import com.react.project.Enumirator.Role;
 import lombok.*;
