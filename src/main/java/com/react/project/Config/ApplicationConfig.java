@@ -8,11 +8,13 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -23,13 +25,22 @@ public class ApplicationConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepository.findByEmail(username)
-                .map(user -> new org.springframework.security.core.userdetails.User(
-                        user.getEmail(),
-                        user.getPassword(),
-                        new ArrayList<>()))
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
+        return emailOrUsername -> {
+            var user = userRepository.findByEmail(emailOrUsername)
+                    .or(() -> userRepository.findByUsername(emailOrUsername))
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            // user.getEmail() must be the principal (username)
+            // That means in all token checks, subject = email
+            return new org.springframework.security.core.userdetails.User(
+                    user.getEmail(),
+                    user.getPassword(),
+                    List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+            );
+        };
     }
+
+
 
     @Bean
     public AuthenticationProvider authenticationProvider() {

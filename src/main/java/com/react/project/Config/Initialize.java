@@ -43,7 +43,7 @@ public class Initialize implements CommandLineRunner {
                     .email("admin@admin.com")
                     .username("ADMIN")
                     .password("admin123")
-                    .role(Role.ADMIN)
+                    .role(Role.HR)
                     .build();
 
             RegisterResponse response = userService.register(adminRequest);

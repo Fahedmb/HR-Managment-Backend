@@ -12,6 +12,8 @@ import com.react.project.Service.UserService;
 import com.react.project.dto.UserDTO;
 import com.react.project.Service.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -79,9 +81,7 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    @Override
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UserException("User not found"));
 
@@ -89,18 +89,28 @@ public class UserServiceImpl implements UserService {
             throw new UserException("Invalid credentials");
         }
 
+        // Create a UserDetails instance that returns email as username
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPassword(),
+                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+        );
+
         Map<String, String> extraClaims = Map.of(
                 "role", user.getRole().toString(),
                 "username", user.getUsername()
         );
 
-        String token = jwtService.generateToken(extraClaims, user, 1000 * 60 * 60);
+        // Now generate the token
+        String token = jwtService.generateToken(extraClaims, userDetails, 1000 * 60 * 60);
 
         return AuthenticationResponse.builder()
                 .token(token)
                 .messageResponse("Authentication successful")
+                .user(convertToDTO(user))
                 .build();
     }
+
 
     @Override
     public UserDTO update(Long id, UserDTO userDTO) {

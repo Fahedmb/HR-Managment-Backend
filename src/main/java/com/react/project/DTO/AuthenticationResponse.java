@@ -1,14 +1,17 @@
 package com.react.project.DTO;
 
-import lombok.*;
+import com.react.project.dto.UserDTO;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthenticationResponse {
-
     private String token;
     private String messageResponse;
-    private String user;
+    private UserDTO user;
 }

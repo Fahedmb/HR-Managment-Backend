@@ -39,17 +39,17 @@ public class AuthenticationController {
 
     @PostMapping("/authenticate")
     public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest request) {
-        // Authenticate the user and retrieve the JWT token
-        AuthenticationResponse authResponse = userService.authenticate(request);
 
-        // Get the user data (e.g., username or userId)
+        AuthenticationResponse authResponse = userService.authenticate(request);
         UserDTO user = userService.getUserByEmail(request.getEmail());
 
-        // Ensure that the token and user data are correctly included in the response
-        AuthenticationResponse responseWithUser = new AuthenticationResponse(authResponse.getToken(), "Authentication successful", user.getUsername());
-
-        return ResponseEntity.ok(responseWithUser);
+        return ResponseEntity.ok(AuthenticationResponse.builder()
+                .token(authResponse.getToken())
+                .messageResponse("Authentication successful")
+                .user(user)
+                .build());
     }
+
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletResponse response) {
