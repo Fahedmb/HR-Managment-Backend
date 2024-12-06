@@ -1,5 +1,6 @@
 package com.react.project.Service;
 
+import com.react.project.DTO.LeaveBalanceDTO;
 import com.react.project.Model.LeaveRequest;
 import com.react.project.DTO.LeaveRequestDTO;
 
@@ -11,4 +12,5 @@ public interface LeaveRequestService {
     LeaveRequestDTO create(LeaveRequestDTO leaveRequestDTO);
     LeaveRequestDTO update(Long id, LeaveRequestDTO leaveRequestDTO);
     void delete(Long id);
+    LeaveBalanceDTO getLeaveBalance(Long userId);
 }

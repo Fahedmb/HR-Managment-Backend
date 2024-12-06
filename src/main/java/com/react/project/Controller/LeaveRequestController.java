@@ -1,5 +1,6 @@
 package com.react.project.Controller;
 
+import com.react.project.DTO.LeaveBalanceDTO;
 import com.react.project.DTO.LeaveRequestDTO;
 import com.react.project.Service.LeaveRequestService;
 import org.springframework.http.HttpStatus;
@@ -43,4 +44,12 @@ public class LeaveRequestController {
     public void deleteLeaveRequest(@PathVariable Long id) {
         leaveRequestService.delete(id);
     }
+
+    @GetMapping("/balance/{userId}")
+    public LeaveBalanceDTO getLeaveBalance(@PathVariable Long userId) {
+        return leaveRequestService.getLeaveBalance(userId);
+    }
+
+
+
 }

@@ -54,6 +54,9 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Role role;
 
+    @Column(nullable = false)
+    private int usedDaysThisYear = 0;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
