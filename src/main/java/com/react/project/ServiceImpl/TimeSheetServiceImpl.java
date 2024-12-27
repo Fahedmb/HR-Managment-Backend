@@ -1,69 +1,65 @@
+// TimeSheetServiceImpl.java
 package com.react.project.ServiceImpl;
 
-import com.react.project.Model.TimeSheet;
-import com.react.project.Model.User;
 import com.react.project.DTO.TimeSheetDTO;
 import com.react.project.Mapper.TimeSheetMapper;
+import com.react.project.Model.TimeSheet;
+import com.react.project.Model.User;
 import com.react.project.Repository.TimeSheetRepository;
 import com.react.project.Repository.UserRepository;
 import com.react.project.Service.TimeSheetService;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class TimeSheetServiceImpl implements TimeSheetService {
-    private final TimeSheetRepository timeSheetRepository;
-    private final UserRepository userRepository;
+    private final TimeSheetRepository repo;
+    private final UserRepository userRepo;
 
-    public TimeSheetServiceImpl(TimeSheetRepository timeSheetRepository, UserRepository userRepository) {
-        this.timeSheetRepository = timeSheetRepository;
-        this.userRepository = userRepository;
+    public TimeSheetServiceImpl(TimeSheetRepository r, UserRepository u) {
+        this.repo = r;
+        this.userRepo = u;
+    }
+
+    @Override
+    public List<TimeSheetDTO> findAll() {
+        return repo.findAll().stream().map(TimeSheetMapper::toDTO).collect(Collectors.toList());
     }
 
     @Override
     public TimeSheetDTO findById(Long id) {
-        TimeSheet timeSheet = timeSheetRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("TimeSheet not found"));
-        return TimeSheetMapper.toDTO(timeSheet);
+        TimeSheet t = repo.findById(id).orElseThrow(() -> new RuntimeException("Not found"));
+        return TimeSheetMapper.toDTO(t);
     }
 
     @Override
     public List<TimeSheetDTO> findByUserId(Long userId) {
-        return timeSheetRepository.findByUserId(userId)
-                .stream()
-                .map(TimeSheetMapper::toDTO)
-                .collect(Collectors.toList());
+        return repo.findByUserId(userId).stream().map(TimeSheetMapper::toDTO).collect(Collectors.toList());
     }
 
     @Override
-    public TimeSheetDTO create(TimeSheetDTO timeSheetDTO) {
-        User user = userRepository.findById(timeSheetDTO.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        User approvedBy = null;
-        if (timeSheetDTO.getApprovedById() != null) {
-            approvedBy = userRepository.findById(timeSheetDTO.getApprovedById())
-                    .orElseThrow(() -> new RuntimeException("Approver not found"));
+    public TimeSheetDTO create(TimeSheetDTO dto) {
+        User user = userRepo.findById(dto.getUserId()).orElseThrow(() -> new RuntimeException("User not found"));
+        User approved = null;
+        if (dto.getApprovedById() != null) {
+            approved = userRepo.findById(dto.getApprovedById()).orElseThrow(() -> new RuntimeException("Approver not found"));
         }
-        TimeSheet timeSheet = TimeSheetMapper.toEntity(timeSheetDTO, user, approvedBy);
-        TimeSheet savedTimeSheet = timeSheetRepository.save(timeSheet);
-        return TimeSheetMapper.toDTO(savedTimeSheet);
+        TimeSheet entity = TimeSheetMapper.toEntity(dto, user, approved);
+        return TimeSheetMapper.toDTO(repo.save(entity));
     }
 
     @Override
-    public TimeSheetDTO update(Long id, TimeSheetDTO timeSheetDTO) {
-        TimeSheet existingTimeSheet = timeSheetRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("TimeSheet not found"));
-        existingTimeSheet.setDate(timeSheetDTO.getDate());
-        existingTimeSheet.setHoursWorked(timeSheetDTO.getHoursWorked());
-        existingTimeSheet.setStatus(timeSheetDTO.getStatus());
-        TimeSheet updatedTimeSheet = timeSheetRepository.save(existingTimeSheet);
-        return TimeSheetMapper.toDTO(updatedTimeSheet);
+    public TimeSheetDTO update(Long id, TimeSheetDTO dto) {
+        TimeSheet t = repo.findById(id).orElseThrow(() -> new RuntimeException("Not found"));
+        t.setDate(dto.getDate());
+        t.setHoursWorked(dto.getHoursWorked());
+        t.setStatus(dto.getStatus());
+        return TimeSheetMapper.toDTO(repo.save(t));
     }
 
     @Override
     public void delete(Long id) {
-        timeSheetRepository.deleteById(id);
+        repo.deleteById(id);
     }
 }

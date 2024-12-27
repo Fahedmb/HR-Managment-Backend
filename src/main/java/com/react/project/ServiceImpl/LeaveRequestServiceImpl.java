@@ -1,3 +1,4 @@
+// LeaveRequestServiceImpl.java
 package com.react.project.ServiceImpl;
 
 import com.react.project.DTO.LeaveBalanceDTO;
@@ -11,7 +12,6 @@ import com.react.project.Repository.LeaveRequestRepository;
 import com.react.project.Repository.UserRepository;
 import com.react.project.Service.LeaveRequestService;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -19,89 +19,78 @@ import java.util.stream.Collectors;
 
 @Service
 public class LeaveRequestServiceImpl implements LeaveRequestService {
-    private final LeaveRequestRepository leaveRequestRepository;
-    private final UserRepository userRepository;
-
+    private final LeaveRequestRepository repo;
+    private final UserRepository userRepo;
     private static final int MAX_DAYS_PER_YEAR = 30;
 
-    public LeaveRequestServiceImpl(LeaveRequestRepository leaveRequestRepository, UserRepository userRepository) {
-        this.leaveRequestRepository = leaveRequestRepository;
-        this.userRepository = userRepository;
+    public LeaveRequestServiceImpl(LeaveRequestRepository r, UserRepository u) {
+        this.repo = r;
+        this.userRepo = u;
+    }
+
+    @Override
+    public List<LeaveRequestDTO> findAll() {
+        return repo.findAll().stream().map(LeaveRequestMapper::toDTO).collect(Collectors.toList());
     }
 
     @Override
     public LeaveRequestDTO findById(Long id) {
-        LeaveRequest leaveRequest = leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Leave request not found"));
-        return LeaveRequestMapper.toDTO(leaveRequest);
+        LeaveRequest lr = repo.findById(id).orElseThrow(() -> new RuntimeException("Not found"));
+        return LeaveRequestMapper.toDTO(lr);
     }
 
     @Override
     public List<LeaveRequestDTO> findByUserId(Long userId) {
-        return leaveRequestRepository.findByUserId(userId)
-                .stream()
-                .map(LeaveRequestMapper::toDTO)
-                .collect(Collectors.toList());
+        return repo.findByUserId(userId).stream().map(LeaveRequestMapper::toDTO).collect(Collectors.toList());
     }
 
     @Override
-    public LeaveRequestDTO create(LeaveRequestDTO leaveRequestDTO) {
-        User user = userRepository.findById(leaveRequestDTO.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        LeaveRequest leaveRequest = LeaveRequestMapper.toEntity(leaveRequestDTO, user);
-        LeaveRequest savedLeaveRequest = leaveRequestRepository.save(leaveRequest);
-        return LeaveRequestMapper.toDTO(savedLeaveRequest);
+    public LeaveRequestDTO create(LeaveRequestDTO dto) {
+        User user = userRepo.findById(dto.getUserId()).orElseThrow(() -> new RuntimeException("User not found"));
+        LeaveRequest entity = LeaveRequestMapper.toEntity(dto, user);
+        return LeaveRequestMapper.toDTO(repo.save(entity));
     }
 
     @Override
-    public LeaveRequestDTO update(Long id, LeaveRequestDTO leaveRequestDTO) {
-        LeaveRequest existingRequest = leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Leave request not found"));
-
-        boolean wasApprovedBefore = existingRequest.getStatus() == LeaveStatus.APPROVED;
-
-        existingRequest.setStartDate(leaveRequestDTO.getStartDate());
-        existingRequest.setEndDate(leaveRequestDTO.getEndDate());
-        existingRequest.setType(leaveRequestDTO.getType());
-        existingRequest.setStatus(leaveRequestDTO.getStatus());
-        existingRequest.setReason(leaveRequestDTO.getReason());
-        LeaveRequest updatedRequest = leaveRequestRepository.save(existingRequest);
-
-        if (!wasApprovedBefore && leaveRequestDTO.getStatus() == LeaveStatus.APPROVED) {
-            User user = updatedRequest.getUser();
-            recalculateUsedDaysThisYear(user);
+    public LeaveRequestDTO update(Long id, LeaveRequestDTO dto) {
+        LeaveRequest existing = repo.findById(id).orElseThrow(() -> new RuntimeException("Not found"));
+        boolean wasApproved = existing.getStatus() == LeaveStatus.APPROVED;
+        existing.setStartDate(dto.getStartDate());
+        existing.setEndDate(dto.getEndDate());
+        existing.setType(dto.getType());
+        existing.setStatus(dto.getStatus());
+        existing.setReason(dto.getReason());
+        LeaveRequest updated = repo.save(existing);
+        if (!wasApproved && dto.getStatus() == LeaveStatus.APPROVED) {
+            recalc(updated.getUser());
         }
-
-        return LeaveRequestMapper.toDTO(updatedRequest);
+        return LeaveRequestMapper.toDTO(updated);
     }
 
     @Override
     public void delete(Long id) {
-        leaveRequestRepository.deleteById(id);
+        repo.deleteById(id);
     }
 
     @Override
     public LeaveBalanceDTO getLeaveBalance(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserException("User not found"));
-        int usedDaysThisYear = user.getUsedDaysThisYear();
-        int remaining = MAX_DAYS_PER_YEAR - usedDaysThisYear;
-        return new LeaveBalanceDTO(MAX_DAYS_PER_YEAR, usedDaysThisYear, Math.max(remaining, 0));
+        User user = userRepo.findById(userId).orElseThrow(() -> new UserException("User not found"));
+        int used = user.getUsedDaysThisYear();
+        int remain = MAX_DAYS_PER_YEAR - used;
+        return new LeaveBalanceDTO(MAX_DAYS_PER_YEAR, used, Math.max(remain, 0));
     }
 
-    private void recalculateUsedDaysThisYear(User user) {
-        int currentYear = LocalDate.now().getYear();
-        List<LeaveRequest> requests = leaveRequestRepository.findByUserId(user.getId());
-
+    private void recalc(User user) {
+        int year = LocalDate.now().getYear();
+        List<LeaveRequest> requests = repo.findByUserId(user.getId());
         int totalUsed = 0;
         for (LeaveRequest lr : requests) {
-            if (lr.getStatus() == LeaveStatus.APPROVED && lr.getStartDate().getYear() == currentYear) {
+            if (lr.getStatus() == LeaveStatus.APPROVED && lr.getStartDate().getYear() == year) {
                 long days = ChronoUnit.DAYS.between(lr.getStartDate(), lr.getEndDate()) + 1;
                 totalUsed += days;
             }
         }
-
         user.setUsedDaysThisYear(totalUsed);
-        userRepository.save(user);
+        userRepo.save(user);
     }
 }
