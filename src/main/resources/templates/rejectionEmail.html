@@ -1,0 +1,63 @@
+<!-- File: src/main/resources/templates/rejectionEmail.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <style>
+        /* Basic styling, adjust to match your UI */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #dddddd;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 15px;
+        }
+        .header h2 {
+            color: #333333;
+        }
+        .content p {
+            color: #555555;
+            line-height: 1.6;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 18px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 15px;
+            color: #999999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h2>Your Request Has Been Rejected</h2>
+    </div>
+    <div class="content">
+        <p>Hi <span th:text="${username}">User</span>,</p>
+        <p>We're sorry to inform you that your request (ID: <span th:text="${requestId}">101</span>) has been rejected.</p>
+        <p>If you have any questions or need further assistance, please contact the HR team.</p>
+        <p>Best Regards,<br/>HR Team</p>
+    </div>
+    <div class="footer">
+        <p>&copy; 2024 HR Management System. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>

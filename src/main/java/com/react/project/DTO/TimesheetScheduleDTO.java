@@ -22,4 +22,5 @@ public class TimesheetScheduleDTO {
     private TimesheetStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String userEmail;
 }

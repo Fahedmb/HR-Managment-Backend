@@ -1,3 +1,4 @@
+// File: src/main/java/com/react/project/DTO/LeaveRequestDTO.java
 package com.react.project.DTO;
 
 import com.react.project.Enumirator.LeaveStatus;
@@ -14,6 +15,8 @@ import java.time.LocalDateTime;
 public class LeaveRequestDTO {
     private Long id;
     private Long userId;
+    private String userEmail; // Ensure this field exists
+    private String username;  // Added for email personalization
     private LocalDate startDate;
     private LocalDate endDate;
     private LeaveType type;

@@ -1,0 +1,69 @@
+<!-- File: src/main/resources/templates/scheduleCreationEmail.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <style>
+        /* Basic styling, adjust to match your UI */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #dddddd;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 15px;
+        }
+        .header h2 {
+            color: #333333;
+        }
+        .content p {
+            color: #555555;
+            line-height: 1.6;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 18px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 15px;
+            color: #999999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h2>New Schedule Created</h2>
+    </div>
+    <div class="content">
+        <p>Hi <span th:text="${username}">User</span>,</p>
+        <p>Your schedule (ID: <span th:text="${scheduleId}">456</span>) has been created successfully.</p>
+        <p>Here are the details:</p>
+        <div class="details">
+            <p><strong>Date:</strong> <span th:text="${date}">2024-02-01</span></p>
+            <p><strong>Time:</strong> <span th:text="${time}">09:00 AM - 05:00 PM</span></p>
+            <!-- Add more details as necessary -->
+        </div>
+        <p>If you need to make any changes, please contact the HR team.</p>
+        <p>Best Regards,<br/>HR Team</p>
+    </div>
+    <div class="footer">
+        <p>&copy; 2024 HR Management System. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>

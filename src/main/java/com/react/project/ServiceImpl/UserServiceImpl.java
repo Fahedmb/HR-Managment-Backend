@@ -8,10 +8,13 @@ import com.react.project.Enumirator.Role;
 import com.react.project.Exception.UserException;
 import com.react.project.Model.User;
 import com.react.project.Repository.UserRepository;
+import com.react.project.Service.EmailService;
 import com.react.project.Service.UserService;
 import com.react.project.DTO.UserDTO;
 import com.react.project.Service.JwtService;
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,12 +33,26 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    @Autowired
+    private EmailService emailService;
 
     @Override
     public UserDTO findById(Long id) {
         return userRepository.findById(id)
                 .map(this::convertToDTO)
                 .orElseThrow(() -> new UserException("User not found"));
+    }
+
+    @Override
+    public User getUserEntityById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    @Override
+    public UserDTO getUserById(Long userId) {
+        User user = getUserEntityById(userId);
+        return new UserDTO(user.getId(), user.getUsername(), user.getPosition(), user.getRole());
     }
 
     @Override
@@ -48,38 +65,28 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public RegisterResponse register(RegisterRequest request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setRole(Role.EMPLOYEE);
+        userRepository.save(user);
 
-        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
-        if (existingUser.isPresent()) {
-            throw new UserException("Email is already in use.");
+        Map<String, Object> templateModel = Map.of(
+                "username", user.getUsername(),
+                "loginUrl", "http://localhost:5173/login"
+        );
+
+        try {
+            emailService.sendEmail(user.getEmail(), "Welcome to HR Management System!", "registrationEmail", templateModel);
+        } catch (MessagingException e) {
+            throw new RuntimeException(e);
         }
 
-        Optional<User> existingUserByUsername = userRepository.findByUsername(request.getUsername());
-        if (existingUserByUsername.isPresent()) {
-            throw new UserException("Username is already in use.");
-        }
-
-        User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .position(request.getPosition())
-                .department(request.getDepartment())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.EMPLOYEE)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
-        User savedUser = userRepository.save(user);
-
-        return RegisterResponse.builder()
-                .messageResponse("User successfully registered")
-                .emailResponse(savedUser.getEmail())
-                .build();
+        return RegisterResponse.builder().messageResponse("User registered successfully").build();
     }
-
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         User user = userRepository.findByEmail(request.getEmail())

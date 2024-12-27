@@ -40,7 +40,6 @@ public class User implements UserDetails {
     private String password;
 
     @Size(max = 20, message = "First Name must be between 20 characters")
-    @Column(nullable = false)
     private String firstName;
 
     @Size(max = 20, message = "Last Name must be between 20 characters")

@@ -1,4 +1,6 @@
+// File: src/main/java/com/react/project/Config/SecurityConfiguration.java
 package com.react.project.Config;
+
 import com.react.project.Exception.CustomAccessDeniedHandler;
 import com.react.project.Exception.CustomAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
@@ -21,20 +23,38 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfiguration {
-    private final JwtAuthenticationFilter f;private final AuthenticationProvider p;
-    @Bean public SecurityFilterChain s(HttpSecurity h,CustomAuthenticationEntryPoint e,CustomAccessDeniedHandler d)throws Exception{
-        h.csrf(AbstractHttpConfigurer::disable).cors(c->c.configurationSource(u()))
-                .authorizeHttpRequests(r->r
-                        .requestMatchers("/auth/**","/api/users/**","/api/chart-data","/api/leave-requests/**","/api/analytics/**","/api/requests/**","/api/time-sheets/**").permitAll()
-                        .anyRequest().authenticated())
-                .sessionManagement(s->s.sessionCreationPolicy(STATELESS))
-                .authenticationProvider(p)
-                .addFilterBefore(f,UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(x->x.authenticationEntryPoint(e).accessDeniedHandler(d));
-        return h.build();
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CustomAuthenticationEntryPoint authEntryPoint, CustomAccessDeniedHandler accessDeniedHandler) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/auth/**", "/api/users/**", "/api/chart-data", "/api/leave-requests/**", "/api/analytics/**", "/api/requests/**", "/api/time-sheets/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
+                );
+
+        return http.build();
     }
-    @Bean public UrlBasedCorsConfigurationSource u(){
-        CorsConfiguration c=new CorsConfiguration();c.setAllowCredentials(true);c.setAllowedOrigins(List.of("http://localhost:5173"));c.addAllowedHeader("*");c.addAllowedMethod("*");
-        UrlBasedCorsConfigurationSource s=new UrlBasedCorsConfigurationSource();s.registerCorsConfiguration("/**",c);return s;
+
+    @Bean
+    public UrlBasedCorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
