@@ -50,6 +50,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public void incrementUsedLeaveDays(Long userId, int days) {
+        User user = getUserEntityById(userId);
+        user.setUsedDaysThisYear(user.getUsedDaysThisYear() + days);
+        userRepository.save(user);
+    }
+
+    @Override
     public UserDTO getUserById(Long userId) {
         User user = getUserEntityById(userId);
         return new UserDTO(user.getId(), user.getUsername(), user.getPosition(), user.getRole());

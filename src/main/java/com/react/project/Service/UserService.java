@@ -18,6 +18,6 @@ public interface UserService {
     UserDTO getUserByEmail(String email);
     User getUserEntityById(Long userId);
     UserDTO getUserById(Long userId);
-
+    void incrementUsedLeaveDays(Long userId, int days);
     AuthenticationResponse authenticate(AuthenticationRequest request);
 }

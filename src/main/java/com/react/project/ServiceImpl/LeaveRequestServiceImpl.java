@@ -1,8 +1,7 @@
-package com.react.project.ServiceImpl;
+// File: src/main/java/com/react/project/Service/impl/LeaveRequestServiceImpl.java
+package com.react.project.Service.impl;
 
 import com.react.project.DTO.LeaveRequestDTO;
-import com.react.project.DTO.UserDTO;
-import com.react.project.Enumirator.LeaveStatus;
 import com.react.project.Model.LeaveRequest;
 import com.react.project.Repository.LeaveRequestRepository;
 import com.react.project.Service.EmailService;
@@ -23,6 +22,8 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final UserService userService;
     private final EmailService emailService;
+
+    private static final int TOTAL_LEAVE_DAYS = 30;
 
     @Override
     public List<LeaveRequestDTO> findAll() {
@@ -52,7 +53,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
         leaveRequest.setStartDate(dto.getStartDate());
         leaveRequest.setEndDate(dto.getEndDate());
         leaveRequest.setType(dto.getType());
-        leaveRequest.setStatus(leaveRequest.getStatus() != null ? leaveRequest.getStatus() : LeaveStatus.PENDING);
+        leaveRequest.setStatus(com.react.project.Enumirator.LeaveStatus.PENDING);
         leaveRequest.setReason(dto.getReason());
         leaveRequestRepository.save(leaveRequest);
 
@@ -86,16 +87,22 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
         leaveRequest.setStatus(dto.getStatus());
         leaveRequestRepository.save(leaveRequest);
 
+        // If approved, update usedDaysThisYear
+        if (dto.getStatus() == com.react.project.Enumirator.LeaveStatus.APPROVED) {
+            int leaveDays = leaveRequest.getEndDate().getDayOfYear() - leaveRequest.getStartDate().getDayOfYear() + 1;
+            userService.incrementUsedLeaveDays(leaveRequest.getUser().getId(), leaveDays);
+        }
+
         LeaveRequestDTO updatedDto = convertToDTO(leaveRequest);
 
         // Determine email template and subject based on status
         String templateName = "";
         String subject = "";
 
-        if (updatedDto.getStatus() == LeaveStatus.APPROVED) {
+        if (updatedDto.getStatus() == com.react.project.Enumirator.LeaveStatus.APPROVED) {
             templateName = "approvalEmail";
             subject = "Your Leave Request Has Been Approved";
-        } else if (updatedDto.getStatus() == LeaveStatus.REJECTED) {
+        } else if (updatedDto.getStatus() == com.react.project.Enumirator.LeaveStatus.REJECTED) {
             templateName = "rejectionEmail";
             subject = "Your Leave Request Has Been Rejected";
         }
@@ -157,11 +164,11 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 
     @Override
     public int getLeaveBalance(Long userId) {
-        // Implement logic to calculate leave balance
-        // For example:
-        UserDTO user = userService.getUserById(userId);
-        // Assume each employee has 20 leave days per year
-        return 20 - leaveRequestRepository.findApprovedLeavesByUserId(userId);
+        Integer approvedLeaveDays = leaveRequestRepository.sumApprovedLeaveDays(userId);
+        if (approvedLeaveDays == null) {
+            approvedLeaveDays = 0;
+        }
+        return TOTAL_LEAVE_DAYS - approvedLeaveDays;
     }
 
     @Override
