@@ -11,5 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class RegisterResponse {
     private String messageResponse;
-    private String emailResponse;
+    private String token;
+    private UserDTO user;
 }

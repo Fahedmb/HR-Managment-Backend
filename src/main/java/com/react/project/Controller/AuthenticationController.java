@@ -5,20 +5,16 @@ import com.react.project.DTO.RegisterResponse;
 import com.react.project.DTO.UserDTO;
 import com.react.project.DTO.AuthenticationRequest;
 import com.react.project.DTO.AuthenticationResponse;
-import com.react.project.Exception.UserException;
 import com.react.project.Service.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.BindingResult;
 
 import jakarta.validation.Valid;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")

@@ -23,7 +23,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,8 +57,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDTO getUserById(Long userId) {
-        User user = getUserEntityById(userId);
-        return new UserDTO(user.getId(), user.getUsername(), user.getPosition(), user.getRole());
+        return findById(userId);
     }
 
     @Override
@@ -71,28 +69,78 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public List<UserDTO> findByDepartment(String department) {
+        return userRepository.findByDepartment(department)
+                .stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UserDTO> findByRole(Role role) {
+        return userRepository.findByRole(role)
+                .stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public UserDTO changeRole(Long id, Role newRole) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserException("User not found"));
+        user.setRole(newRole);
+        return convertToDTO(userRepository.save(user));
+    }
+
+    @Override
+    public void resetPassword(Long id, String newPassword) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserException("User not found"));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
     public RegisterResponse register(RegisterRequest request) {
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setRole(Role.EMPLOYEE);
+        // Auto-derive username from firstName + "." + lastName
+        String baseUsername = (request.getFirstName() + "." + request.getLastName()).toLowerCase().replaceAll("\\s+", "");
+        String username = baseUsername;
+        int suffix = 1;
+        while (userRepository.findByUsername(username).isPresent()) {
+            username = baseUsername + suffix++;
+        }
+
+        User user = User.builder()
+                .username(username)
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .position(request.getPosition())
+                .department(request.getDepartment())
+                .role(request.getRole() != null ? request.getRole() : Role.EMPLOYEE)
+                .build();
         userRepository.save(user);
 
+        // Generate JWT so the user is immediately logged-in after registration
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                user.getEmail(), user.getPassword(),
+                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
+        String token = jwtService.generateToken(Map.of("role", user.getRole().toString(), "username", user.getUsername()), userDetails, 1000L * 60 * 60);
+
         Map<String, Object> templateModel = Map.of(
-                "username", user.getUsername(),
+                "username", user.getFirstName() + " " + user.getLastName(),
                 "loginUrl", "http://localhost:5173/login"
         );
 
         try {
             emailService.sendEmail(user.getEmail(), "Welcome to HR Management System!", "registrationEmail", templateModel);
         } catch (MessagingException e) {
-            throw new RuntimeException(e);
+            // Log but don't fail registration
+            System.err.println("Failed to send welcome email: " + e.getMessage());
         }
 
-        return RegisterResponse.builder().messageResponse("User registered successfully").build();
+        return RegisterResponse.builder()
+                .messageResponse("User registered successfully")
+                .token(token)
+                .user(convertToDTO(user))
+                .build();
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {

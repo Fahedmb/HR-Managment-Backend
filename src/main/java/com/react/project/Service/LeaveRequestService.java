@@ -13,6 +13,7 @@ public interface LeaveRequestService {
     LeaveRequestDTO create(LeaveRequestDTO dto) throws MessagingException;
     LeaveRequestDTO updateStatus(Long id, LeaveRequestDTO dto) throws MessagingException;
     LeaveRequestDTO update(Long id, LeaveRequestDTO dto) throws MessagingException;
+    LeaveRequestDTO cancel(Long id, String reason) throws MessagingException;
     int getLeaveBalance(Long userId);
     void delete(Long id);
 }

@@ -1,18 +1,22 @@
-// File: src/main/java/com/react/project/Service/impl/LeaveRequestServiceImpl.java
-package com.react.project.Service.impl;
+package com.react.project.ServiceImpl;
 
 import com.react.project.DTO.LeaveRequestDTO;
+import com.react.project.Enumirator.LeaveStatus;
+import com.react.project.Enumirator.NotificationType;
 import com.react.project.Model.LeaveRequest;
+import com.react.project.Model.User;
 import com.react.project.Repository.LeaveRequestRepository;
 import com.react.project.Service.EmailService;
 import com.react.project.Service.LeaveRequestService;
+import com.react.project.Service.NotificationService;
 import com.react.project.Service.UserService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,8 +26,11 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final UserService userService;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     private static final int TOTAL_LEAVE_DAYS = 30;
+
+    // ── Read ───────────────────────────────────────────────────────────
 
     @Override
     public List<LeaveRequestDTO> findAll() {
@@ -34,9 +41,8 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 
     @Override
     public LeaveRequestDTO findById(Long id) {
-        LeaveRequest leaveRequest = leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Leave Request not found"));
-        return convertToDTO(leaveRequest);
+        return convertToDTO(leaveRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Leave Request not found")));
     }
 
     @Override
@@ -46,129 +52,129 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
                 .collect(Collectors.toList());
     }
 
+    // ── Create ─────────────────────────────────────────────────────────
+
     @Override
     public LeaveRequestDTO create(LeaveRequestDTO dto) throws MessagingException {
-        LeaveRequest leaveRequest = new LeaveRequest();
-        leaveRequest.setUser(userService.getUserEntityById(dto.getUserId()));
-        leaveRequest.setStartDate(dto.getStartDate());
-        leaveRequest.setEndDate(dto.getEndDate());
-        leaveRequest.setType(dto.getType());
-        leaveRequest.setStatus(com.react.project.Enumirator.LeaveStatus.PENDING);
-        leaveRequest.setReason(dto.getReason());
-        leaveRequestRepository.save(leaveRequest);
+        LeaveRequest lr = new LeaveRequest();
+        lr.setUser(userService.getUserEntityById(dto.getUserId()));
+        lr.setStartDate(dto.getStartDate());
+        lr.setEndDate(dto.getEndDate());
+        lr.setType(dto.getType());
+        lr.setStatus(LeaveStatus.PENDING);
+        lr.setReason(dto.getReason());
+        lr.setHalfDay(dto.getHalfDay() != null && dto.getHalfDay());
+        leaveRequestRepository.save(lr);
 
-        LeaveRequestDTO savedDto = convertToDTO(leaveRequest);
+        LeaveRequestDTO saved = convertToDTO(lr);
 
-        // Prepare email data
-        Map<String, Object> templateModel = Map.of(
-                "username", savedDto.getUsername(),
-                "leaveRequestId", savedDto.getId(),
-                "startDate", savedDto.getStartDate(),
-                "endDate", savedDto.getEndDate(),
-                "reason", savedDto.getReason()
-        );
+        emailService.sendEmail(saved.getUserEmail(), "Leave Request Submitted",
+                "leaveRequestEmail", Map.of(
+                        "username", saved.getUsername(),
+                        "leaveRequestId", saved.getId(),
+                        "startDate", saved.getStartDate(),
+                        "endDate", saved.getEndDate(),
+                        "reason", saved.getReason()
+                ));
 
-        // Send email
-        emailService.sendEmail(
-                savedDto.getUserEmail(),
-                "Leave Request Submitted",
-                "leaveRequestEmail",
-                templateModel
-        );
+        // Notify HR
+        notificationService.create(lr.getUser().getId(),
+                "Your leave request from " + lr.getStartDate() + " to " + lr.getEndDate() + " has been submitted.",
+                NotificationType.LEAVE_REQUEST_SUBMITTED);
 
-        return savedDto;
+        return saved;
     }
+
+    // ── Update status (HR action) ──────────────────────────────────────
 
     @Override
     public LeaveRequestDTO updateStatus(Long id, LeaveRequestDTO dto) throws MessagingException {
-        LeaveRequest leaveRequest = leaveRequestRepository.findById(id)
+        LeaveRequest lr = leaveRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Leave Request not found"));
 
-        leaveRequest.setStatus(dto.getStatus());
-        leaveRequestRepository.save(leaveRequest);
+        lr.setStatus(dto.getStatus());
 
-        // If approved, update usedDaysThisYear
-        if (dto.getStatus() == com.react.project.Enumirator.LeaveStatus.APPROVED) {
-            int leaveDays = leaveRequest.getEndDate().getDayOfYear() - leaveRequest.getStartDate().getDayOfYear() + 1;
-            userService.incrementUsedLeaveDays(leaveRequest.getUser().getId(), leaveDays);
+        // Store who approved/rejected and any comment
+        if (dto.getApprovedById() != null) {
+            lr.setApprovedBy(userService.getUserEntityById(dto.getApprovedById()));
+        }
+        if (dto.getApproverComment() != null) {
+            lr.setApproverComment(dto.getApproverComment());
         }
 
-        LeaveRequestDTO updatedDto = convertToDTO(leaveRequest);
+        leaveRequestRepository.save(lr);
 
-        // Determine email template and subject based on status
-        String templateName = "";
-        String subject = "";
+        if (dto.getStatus() == LeaveStatus.APPROVED) {
+            long days = ChronoUnit.DAYS.between(lr.getStartDate(), lr.getEndDate()) + 1;
+            if (lr.getHalfDay() != null && lr.getHalfDay()) days = 1;
+            userService.incrementUsedLeaveDays(lr.getUser().getId(), (int) days);
+        }
 
-        if (updatedDto.getStatus() == com.react.project.Enumirator.LeaveStatus.APPROVED) {
+        LeaveRequestDTO updated = convertToDTO(lr);
+
+        String templateName = null;
+        String subject = null;
+        NotificationType notifType = null;
+
+        if (dto.getStatus() == LeaveStatus.APPROVED) {
             templateName = "approvalEmail";
             subject = "Your Leave Request Has Been Approved";
-        } else if (updatedDto.getStatus() == com.react.project.Enumirator.LeaveStatus.REJECTED) {
+            notifType = NotificationType.LEAVE_REQUEST_APPROVED;
+        } else if (dto.getStatus() == LeaveStatus.REJECTED) {
             templateName = "rejectionEmail";
             subject = "Your Leave Request Has Been Rejected";
+            notifType = NotificationType.LEAVE_REQUEST_REJECTED;
         }
 
-        if (!templateName.isEmpty()) {
-            Map<String, Object> templateModel = Map.of(
-                    "username", updatedDto.getUsername(),
-                    "requestId", updatedDto.getId(),
+        if (templateName != null) {
+            emailService.sendEmail(updated.getUserEmail(), subject, templateName, Map.of(
+                    "username", updated.getUsername(),
+                    "requestId", updated.getId(),
                     "type", "Leave Request",
-                    "date", updatedDto.getStartDate() // Adjust as needed
-            );
-
-            // Send email
-            emailService.sendEmail(
-                    updatedDto.getUserEmail(),
-                    subject,
-                    templateName,
-                    templateModel
-            );
+                    "date", updated.getStartDate()
+            ));
+            notificationService.create(lr.getUser().getId(), subject, notifType);
         }
 
-        return updatedDto;
+        return updated;
     }
+
+    // ── Update (employee edits before decision) ────────────────────────
 
     @Override
     public LeaveRequestDTO update(Long id, LeaveRequestDTO dto) throws MessagingException {
-        LeaveRequest leaveRequest = leaveRequestRepository.findById(id)
+        LeaveRequest lr = leaveRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Leave Request not found"));
-
-        leaveRequest.setStartDate(dto.getStartDate());
-        leaveRequest.setEndDate(dto.getEndDate());
-        leaveRequest.setType(dto.getType());
-        leaveRequest.setStatus(dto.getStatus());
-        leaveRequest.setReason(dto.getReason());
-        leaveRequestRepository.save(leaveRequest);
-
-        LeaveRequestDTO updatedDto = convertToDTO(leaveRequest);
-
-        // Optionally send email if needed
-        // Example: Notify user about update
-        Map<String, Object> templateModel = Map.of(
-                "username", updatedDto.getUsername(),
-                "leaveRequestId", updatedDto.getId(),
-                "startDate", updatedDto.getStartDate(),
-                "endDate", updatedDto.getEndDate(),
-                "reason", updatedDto.getReason(),
-                "status", updatedDto.getStatus()
-        );
-
-        emailService.sendEmail(
-                updatedDto.getUserEmail(),
-                "Your Leave Request Has Been Updated",
-                "leaveRequestUpdateEmail", // Create this template if needed
-                templateModel
-        );
-
-        return updatedDto;
+        lr.setStartDate(dto.getStartDate());
+        lr.setEndDate(dto.getEndDate());
+        lr.setType(dto.getType());
+        lr.setStatus(dto.getStatus());
+        lr.setReason(dto.getReason());
+        lr.setHalfDay(dto.getHalfDay() != null && dto.getHalfDay());
+        leaveRequestRepository.save(lr);
+        return convertToDTO(lr);
     }
+
+    // ── Cancel (employee withdraws) ────────────────────────────────────
+
+    @Override
+    public LeaveRequestDTO cancel(Long id, String reason) throws MessagingException {
+        LeaveRequest lr = leaveRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Leave Request not found"));
+        lr.setStatus(LeaveStatus.CANCELLED);
+        lr.setCancellationReason(reason);
+        leaveRequestRepository.save(lr);
+        notificationService.create(lr.getUser().getId(),
+                "Your leave request has been cancelled.", NotificationType.LEAVE_REQUEST_CANCELLED);
+        return convertToDTO(lr);
+    }
+
+    // ── Balance ────────────────────────────────────────────────────────
 
     @Override
     public int getLeaveBalance(Long userId) {
-        Integer approvedLeaveDays = leaveRequestRepository.sumApprovedLeaveDays(userId);
-        if (approvedLeaveDays == null) {
-            approvedLeaveDays = 0;
-        }
-        return TOTAL_LEAVE_DAYS - approvedLeaveDays;
+        Integer used = leaveRequestRepository.sumApprovedLeaveDays(userId);
+        return TOTAL_LEAVE_DAYS - (used == null ? 0 : used);
     }
 
     @Override
@@ -176,19 +182,38 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
         leaveRequestRepository.deleteById(id);
     }
 
-    private LeaveRequestDTO convertToDTO(LeaveRequest leaveRequest) {
-        return LeaveRequestDTO.builder()
-                .id(leaveRequest.getId())
-                .userId(leaveRequest.getUser().getId())
-                .userEmail(leaveRequest.getUser().getEmail())
-                .username(leaveRequest.getUser().getUsername())
-                .startDate(leaveRequest.getStartDate())
-                .endDate(leaveRequest.getEndDate())
-                .type(leaveRequest.getType())
-                .status(leaveRequest.getStatus())
-                .reason(leaveRequest.getReason())
-                .createdAt(leaveRequest.getCreatedAt())
-                .updatedAt(leaveRequest.getUpdatedAt())
-                .build();
+    // ── Mapping ────────────────────────────────────────────────────────
+
+    private LeaveRequestDTO convertToDTO(LeaveRequest lr) {
+        User user = lr.getUser();
+        long daysCount = lr.getStartDate() != null && lr.getEndDate() != null
+                ? ChronoUnit.DAYS.between(lr.getStartDate(), lr.getEndDate()) + 1 : 0;
+        if (Boolean.TRUE.equals(lr.getHalfDay())) daysCount = 1;
+
+        LeaveRequestDTO.LeaveRequestDTOBuilder builder = LeaveRequestDTO.builder()
+                .id(lr.getId())
+                .userId(user.getId())
+                .userEmail(user.getEmail())
+                .username(user.getUsername())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .startDate(lr.getStartDate())
+                .endDate(lr.getEndDate())
+                .type(lr.getType())
+                .status(lr.getStatus())
+                .reason(lr.getReason())
+                .halfDay(lr.getHalfDay())
+                .daysCount((int) daysCount)
+                .cancellationReason(lr.getCancellationReason())
+                .approverComment(lr.getApproverComment())
+                .createdAt(lr.getCreatedAt())
+                .updatedAt(lr.getUpdatedAt());
+
+        if (lr.getApprovedBy() != null) {
+            builder.approvedById(lr.getApprovedBy().getId())
+                   .approvedByName(lr.getApprovedBy().getFirstName() + " " + lr.getApprovedBy().getLastName());
+        }
+
+        return builder.build();
     }
 }

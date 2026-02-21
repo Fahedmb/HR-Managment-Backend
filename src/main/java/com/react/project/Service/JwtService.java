@@ -1,6 +1,5 @@
 package com.react.project.Service;
 
-import com.react.project.Model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

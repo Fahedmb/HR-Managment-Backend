@@ -24,9 +24,7 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Username cannot be blank")
-    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String username;
 
     @Email(message = "Email should be valid")
@@ -54,6 +52,7 @@ public class User implements UserDetails {
     private Role role;
 
     @Column(nullable = false)
+    @Builder.Default
     private int usedDaysThisYear = 0;
 
     private LocalDateTime createdAt;

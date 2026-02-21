@@ -1,0 +1,14 @@
+{
+  "properties": [
+    {
+      "name": "jwt.secret",
+      "type": "java.lang.String",
+      "description": "Base64-encoded secret key used for signing JWT tokens."
+    },
+    {
+      "name": "base.url",
+      "type": "java.lang.String",
+      "description": "Base URL of the application, used for constructing links in emails."
+    }
+  ]
+}

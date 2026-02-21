@@ -15,13 +15,22 @@ import java.time.LocalDateTime;
 public class LeaveRequestDTO {
     private Long id;
     private Long userId;
-    private String userEmail; // Ensure this field exists
-    private String username;  // Added for email personalization
+    private String userEmail;
+    private String username;
+    private String firstName;
+    private String lastName;
+    private Long approvedById;
+    private String approvedByName;
     private LocalDate startDate;
     private LocalDate endDate;
     private LeaveType type;
     private LeaveStatus status;
     private String reason;
+    private String approverComment;
+    private String cancellationReason;
+    private Boolean halfDay;
+    private Integer daysCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
+

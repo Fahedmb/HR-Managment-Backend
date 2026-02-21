@@ -3,7 +3,6 @@ package com.react.project.Model;
 import com.react.project.Enumirator.LeaveStatus;
 import com.react.project.Enumirator.LeaveType;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,6 +23,10 @@ public class LeaveRequest {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
+
     @Column(nullable = false)
     private LocalDate startDate;
 
@@ -38,8 +41,17 @@ public class LeaveRequest {
     @Column(nullable = false)
     private LeaveStatus status;
 
-    @NotBlank(message = "Reason cannot be blank")
+    @Column(nullable = false)
     private String reason;
+
+    @Column(columnDefinition = "TEXT")
+    private String approverComment;
+
+    @Column(columnDefinition = "TEXT")
+    private String cancellationReason;
+
+    /** Whether this leave request is for only half a day */
+    private Boolean halfDay;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -53,5 +65,5 @@ public class LeaveRequest {
     public void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
 }
+

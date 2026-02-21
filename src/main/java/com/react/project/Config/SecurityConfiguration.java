@@ -32,7 +32,25 @@ public class SecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/api/users/**", "/api/chart-data", "/api/leave-requests/**", "/api/analytics/**", "/api/requests/**", "/api/time-sheets/**","/api/leave-requests/balance").permitAll()
+                        .requestMatchers(
+                                "/auth/**",
+                                "/ws/**",
+                                "/api/users/**",
+                                "/api/chart-data",
+                                "/api/leave-requests/**",
+                                "/api/analytics/**",
+                                "/api/requests/**",
+                                "/api/time-sheets/**",
+                                "/api/projects/**",
+                                "/api/teams/**",
+                                "/api/tasks/**",
+                                "/api/meetings/**",
+                                "/api/chat/**",
+                                "/api/notifications/**",
+                                "/api/kpi/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))

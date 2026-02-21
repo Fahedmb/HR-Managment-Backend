@@ -59,6 +59,14 @@ public class LeaveRequestController {
         service.delete(id);
     }
 
+    @PatchMapping("/{id}/cancel")
+    public LeaveRequestDTO cancel(@PathVariable Long id,
+                                  @RequestBody(required = false) java.util.Map<String, String> body)
+            throws MessagingException {
+        String reason = body != null ? body.get("reason") : null;
+        return service.cancel(id, reason);
+    }
+
     // New Endpoint for Leave Balance
     @GetMapping("/balance")
     public int getLeaveBalance(Authentication authentication) {
