@@ -7,6 +7,7 @@ import com.react.project.Service.TimesheetScheduleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -45,6 +46,19 @@ public class TimesheetScheduleController {
         TimesheetScheduleDTO d = new TimesheetScheduleDTO();
         d.setStatus(TimesheetStatus.APPROVED);
         return service.updateStatus(id, d);
+    }
+
+    /**
+     * Generic status update used by the HR frontend.
+     * Body: { "status": "APPROVED" | "REJECTED" | "PENDING" }
+     */
+    @PatchMapping("/{id}/status")
+    public TimesheetScheduleDTO patchStatus(@PathVariable Long id,
+                                            @RequestBody Map<String, String> body) {
+        TimesheetStatus status = TimesheetStatus.valueOf(body.get("status"));
+        TimesheetScheduleDTO dto = new TimesheetScheduleDTO();
+        dto.setStatus(status);
+        return service.updateStatus(id, dto);
     }
 
     @PutMapping("/{id}/delete-request")

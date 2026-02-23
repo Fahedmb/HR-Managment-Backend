@@ -20,6 +20,7 @@ public class KpiServiceImpl implements KpiService {
     private final UserRepository userRepository;
     private final LeaveRequestRepository leaveRequestRepository;
     private final TimeSheetRepository timeSheetRepository;
+    private final TimesheetScheduleRepository timesheetScheduleRepository;
     private final ProjectRepository projectRepository;
     private final TeamRepository teamRepository;
     private final TaskRepository taskRepository;
@@ -32,11 +33,12 @@ public class KpiServiceImpl implements KpiService {
         LocalDate firstOfMonth = now.withDayOfMonth(1);
         LocalDateTime startOfMonth = firstOfMonth.atStartOfDay();
         LocalDateTime endOfMonth = now.atTime(23, 59, 59);
+        LocalDateTime startOfYear = now.withDayOfYear(1).atStartOfDay();
 
         List<User> allUsers = userRepository.findAll();
         long totalEmployees = allUsers.stream().filter(u -> u.getRole() == Role.EMPLOYEE).count();
-        long totalHR = allUsers.stream().filter(u -> u.getRole() == Role.HR).count();
-        long newHires = allUsers.stream()
+        long totalHR        = allUsers.stream().filter(u -> u.getRole() == Role.HR).count();
+        long newHires       = allUsers.stream()
                 .filter(u -> u.getCreatedAt() != null && u.getCreatedAt().isAfter(startOfMonth))
                 .count();
 
@@ -49,19 +51,13 @@ public class KpiServiceImpl implements KpiService {
 
         // Leave KPIs
         List<LeaveRequest> allLeaves = leaveRequestRepository.findAll();
-        long pendingLeaves = allLeaves.stream().filter(l -> l.getStatus() == LeaveStatus.PENDING).count();
-        long approvedThisMonth = allLeaves.stream()
-                .filter(l -> l.getStatus() == LeaveStatus.APPROVED
-                        && l.getUpdatedAt() != null && l.getUpdatedAt().isAfter(startOfMonth)).count();
-        long rejectedThisMonth = allLeaves.stream()
-                .filter(l -> l.getStatus() == LeaveStatus.REJECTED
-                        && l.getUpdatedAt() != null && l.getUpdatedAt().isAfter(startOfMonth)).count();
-        long pendingCancellation = allLeaves.stream()
-                .filter(l -> l.getStatus() == LeaveStatus.PENDING_CANCELLATION).count();
+        long pendingLeaves    = allLeaves.stream().filter(l -> l.getStatus() == LeaveStatus.PENDING).count();
+        long approvedLeaves   = allLeaves.stream().filter(l -> l.getStatus() == LeaveStatus.APPROVED).count();
+        long rejectedLeaves   = allLeaves.stream().filter(l -> l.getStatus() == LeaveStatus.REJECTED).count();
+        long pendingCancellation = allLeaves.stream().filter(l -> l.getStatus() == LeaveStatus.PENDING_CANCELLATION).count();
         Map<String, Long> leaveByType = allLeaves.stream()
                 .collect(Collectors.groupingBy(l -> l.getType().name(), Collectors.counting()));
-        OptionalDouble avgLeaveDays = allUsers.stream()
-                .mapToInt(User::getUsedDaysThisYear).average();
+        OptionalDouble avgLeaveDays = allUsers.stream().mapToInt(User::getUsedDaysThisYear).average();
 
         // Attendance KPIs
         List<TimeSheet> allSheets = timeSheetRepository.findAll();
@@ -72,25 +68,39 @@ public class KpiServiceImpl implements KpiService {
                 .mapToDouble(ts -> ts.getHoursWorked() != null ? ts.getHoursWorked() : 0).sum();
         double avgHours = allUsers.isEmpty() ? 0 : totalHoursThisMonth / allUsers.size();
 
-        Set<Long> workingTodayIds = timeSheetRepository.findAll().stream()
+        Set<Long> workingTodayIds = allSheets.stream()
                 .filter(ts -> ts.getDate().equals(now))
-                .map(ts -> ts.getUser().getId())
-                .collect(Collectors.toSet());
+                .map(ts -> ts.getUser().getId()).collect(Collectors.toSet());
         long presentToday = workingTodayIds.size();
         long absentToday = totalEmployees - presentToday;
         double attendanceRate = totalEmployees == 0 ? 0 : (presentToday * 100.0) / totalEmployees;
 
+        // Timesheet schedules
+        List<TimesheetSchedule> allSchedules = timesheetScheduleRepository.findAll();
+        long totalSchedules  = allSchedules.size();
+        long approvedScheds  = allSchedules.stream().filter(s -> s.getStatus() == TimesheetStatus.APPROVED).count();
+        long pendingScheds   = allSchedules.stream().filter(s -> s.getStatus() == TimesheetStatus.PENDING).count();
+
         // Project & Task KPIs
         List<Project> projects = projectRepository.findAll();
-        long totalProjects = projects.size();
-        long activeProjects = projects.stream().filter(p -> p.getStatus() == ProjectStatus.ACTIVE).count();
+        long totalProjects     = projects.size();
+        long activeProjects    = projects.stream().filter(p -> p.getStatus() == ProjectStatus.ACTIVE).count();
         long completedProjects = projects.stream().filter(p -> p.getStatus() == ProjectStatus.COMPLETED).count();
+        long overdueProjects   = projects.stream()
+                .filter(p -> p.getDeadline() != null && p.getDeadline().isBefore(now)
+                          && p.getStatus() != ProjectStatus.COMPLETED && p.getStatus() != ProjectStatus.CANCELLED)
+                .count();
+        Map<String, Long> projectsByStatus = projects.stream()
+                .collect(Collectors.groupingBy(p -> p.getStatus().name(), Collectors.counting()));
+        Map<String, Long> projectsByDepartment = projects.stream()
+                .filter(p -> p.getDepartment() != null)
+                .collect(Collectors.groupingBy(Project::getDepartment, Collectors.counting()));
 
-        List<Task> allTasks = taskRepository.findAll();
-        long totalTasks = allTasks.size();
-        long tasksDone = allTasks.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
-        long tasksOverdue = taskRepository.findOverdueTasks(now).size();
-        long tasksInProgress = allTasks.stream().filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS).count();
+        List<Task> allTasks    = taskRepository.findAll();
+        long totalTasks        = allTasks.size();
+        long tasksDone         = allTasks.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
+        long tasksOverdue      = taskRepository.findOverdueTasks(now).size();
+        long tasksInProgress   = allTasks.stream().filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS).count();
         double taskCompletionRate = totalTasks == 0 ? 0 : (tasksDone * 100.0) / totalTasks;
         Map<String, Long> tasksByPriority = allTasks.stream()
                 .collect(Collectors.groupingBy(t -> t.getPriority().name(), Collectors.counting()));
@@ -102,45 +112,62 @@ public class KpiServiceImpl implements KpiService {
 
         // Meetings
         long meetingsThisMonth = meetingRepository.findByStartTimeBetween(startOfMonth, endOfMonth).size();
-        long upcomingMeetings = meetingRepository.findByStartTimeBetween(
+        long upcomingMeetings  = meetingRepository.findByStartTimeBetween(
                 LocalDateTime.now(), LocalDateTime.now().plusDays(30)).size();
+        long completedMeetings = meetingRepository.findAll().stream()
+                .filter(m -> m.getStatus() == MeetingStatus.COMPLETED).count();
 
         // Performance
-        OptionalDouble avgPerf = performanceEvaluationRepository.findAll().stream()
+        List<PerformanceEvaluation> allEvals = performanceEvaluationRepository.findAll();
+        OptionalDouble avgPerf = allEvals.stream()
                 .filter(p -> p.getScore() != null)
                 .mapToDouble(p -> p.getScore().doubleValue()).average();
+        long evaluationsThisYear = allEvals.stream()
+                .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().isAfter(startOfYear))
+                .count();
 
         return KpiDashboardDTO.builder()
                 .totalEmployees(totalEmployees)
-                .totalHR(totalHR)
+                .totalHrUsers(totalHR)
                 .newHiresThisMonth(newHires)
                 .departmentCount((long) departments.size())
-                .employeesByDepartment(byDept)
+                .departmentBreakdown(byDept)
                 .avgHoursWorkedThisMonth(Math.round(avgHours * 100.0) / 100.0)
                 .totalHoursWorkedThisMonth(totalHoursThisMonth)
                 .presentToday(presentToday)
                 .absentToday(absentToday)
                 .attendanceRatePercent(Math.round(attendanceRate * 100.0) / 100.0)
                 .pendingLeaveRequests(pendingLeaves)
-                .approvedLeaveThisMonth(approvedThisMonth)
-                .rejectedLeaveThisMonth(rejectedThisMonth)
+                .totalLeaveRequestsThisYear((long) allLeaves.size())
+                .approvedLeaveRequests(approvedLeaves)
+                .rejectedLeaveRequests(rejectedLeaves)
                 .pendingCancellationRequests(pendingCancellation)
                 .leaveByType(leaveByType)
-                .avgLeaveDaysUsed(avgLeaveDays.isPresent() ? Math.round(avgLeaveDays.getAsDouble() * 100.0) / 100.0 : 0)
+                .avgLeaveDaysPerEmployee(avgLeaveDays.isPresent()
+                        ? Math.round(avgLeaveDays.getAsDouble() * 100.0) / 100.0 : 0)
+                .totalSchedulesSubmitted(totalSchedules)
+                .approvedSchedules(approvedScheds)
+                .pendingSchedules(pendingScheds)
                 .totalProjects(totalProjects)
                 .activeProjects(activeProjects)
                 .completedProjects(completedProjects)
+                .overdueProjects(overdueProjects)
+                .projectsByStatus(projectsByStatus)
+                .projectsByDepartment(projectsByDepartment)
                 .totalTasks(totalTasks)
-                .tasksCompleted(tasksDone)
-                .tasksOverdue(tasksOverdue)
+                .completedTasks(tasksDone)
+                .overdueTasks(tasksOverdue)
                 .tasksInProgress(tasksInProgress)
-                .taskCompletionRatePercent(Math.round(taskCompletionRate * 100.0) / 100.0)
+                .taskCompletionRate(Math.round(taskCompletionRate * 100.0) / 100.0)
                 .tasksByPriority(tasksByPriority)
                 .tasksByStatus(tasksByStatus)
                 .totalTeams(totalTeams)
-                .meetingsThisMonth(meetingsThisMonth)
+                .totalMeetings(meetingsThisMonth)
                 .upcomingMeetings(upcomingMeetings)
-                .avgPerformanceScore(avgPerf.isPresent() ? Math.round(avgPerf.getAsDouble() * 100.0) / 100.0 : null)
+                .completedMeetings(completedMeetings)
+                .avgPerformanceScore(avgPerf.isPresent()
+                        ? Math.round(avgPerf.getAsDouble() * 100.0) / 100.0 : null)
+                .evaluationsThisYear(evaluationsThisYear)
                 .build();
     }
 
@@ -152,22 +179,22 @@ public class KpiServiceImpl implements KpiService {
         long inProgress = tasks.stream().filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS).count();
         long overdue = tasks.stream()
                 .filter(t -> t.getDeadline() != null && t.getDeadline().isBefore(LocalDate.now())
-                        && t.getStatus() != TaskStatus.DONE).count();
+                          && t.getStatus() != TaskStatus.DONE).count();
         double rate = total == 0 ? 0 : (done * 100.0) / total;
 
         Map<String, Long> byPriority = tasks.stream()
                 .collect(Collectors.groupingBy(t -> t.getPriority().name(), Collectors.counting()));
-        Map<String, Long> byStatus = tasks.stream()
+        Map<String, Long> byStatus   = tasks.stream()
                 .collect(Collectors.groupingBy(t -> t.getStatus().name(), Collectors.counting()));
 
         List<Team> teams = teamRepository.findByProjectId(projectId);
 
         return KpiDashboardDTO.builder()
                 .totalTasks(total)
-                .tasksCompleted(done)
+                .completedTasks(done)
                 .tasksInProgress(inProgress)
-                .tasksOverdue(overdue)
-                .taskCompletionRatePercent(Math.round(rate * 100.0) / 100.0)
+                .overdueTasks(overdue)
+                .taskCompletionRate(Math.round(rate * 100.0) / 100.0)
                 .tasksByPriority(byPriority)
                 .tasksByStatus(byStatus)
                 .totalTeams((long) teams.size())
@@ -178,38 +205,79 @@ public class KpiServiceImpl implements KpiService {
     public KpiDashboardDTO getEmployeeDashboard(Long userId) {
         LocalDate now = LocalDate.now();
         LocalDate firstOfMonth = now.withDayOfMonth(1);
+        LocalDateTime startOfMonth = firstOfMonth.atStartOfDay();
+        LocalDateTime endOfMonth   = now.atTime(23, 59, 59);
+
+        // User info
+        User user = userRepository.findById(userId).orElse(null);
+        String employeeName = user != null
+                ? (user.getFirstName() + " " + user.getLastName()).trim() : "";
+        String department = user != null && user.getDepartment() != null ? user.getDepartment() : "";
+        String position   = user != null && user.getPosition() != null   ? user.getPosition()   : "";
+        int usedDays = user != null ? user.getUsedDaysThisYear() : 0;
+        int balance  = 30 - usedDays;
 
         // Leave
         List<LeaveRequest> userLeaves = leaveRequestRepository.findByUserId(userId);
-        int usedDays = userRepository.findById(userId).map(User::getUsedDaysThisYear).orElse(0);
-        int balance = 30 - usedDays;
+        long pendingLeaves = userLeaves.stream().filter(l -> l.getStatus() == LeaveStatus.PENDING).count();
 
-        // Hours this month
-        List<TimeSheet> sheets = timeSheetRepository.findByUserId(userId).stream()
-                .filter(ts -> !ts.getDate().isBefore(firstOfMonth) && !ts.getDate().isAfter(now))
-                .collect(Collectors.toList());
-        double hoursThisMonth = sheets.stream()
-                .mapToDouble(ts -> ts.getHoursWorked() != null ? ts.getHoursWorked() : 0).sum();
-
-        // Tasks
-        List<Task> myTasks = taskRepository.findByAssignedToId(userId);
-        long myPending = myTasks.stream().filter(t -> t.getStatus() != TaskStatus.DONE).count();
-        long myDone = myTasks.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
-
-        // Upcoming meetings
-        long upcoming = meetingRepository.findAllForUser(userId).stream()
-                .filter(m -> m.getStartTime().isAfter(LocalDateTime.now()))
+        // Tasks assigned to this employee
+        List<Task> myTasks    = taskRepository.findByAssignedToId(userId);
+        long totalTasks       = myTasks.size();
+        long doneTasks        = myTasks.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
+        long inProgressTasks  = myTasks.stream().filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS).count();
+        long overdueTaskCount = myTasks.stream()
+                .filter(t -> t.getDeadline() != null
+                          && t.getDeadline().isBefore(now)
+                          && t.getStatus() != TaskStatus.DONE)
                 .count();
 
+        // Teams the employee belongs to
+        List<Team> myTeamsList = teamRepository.findAll().stream()
+                .filter(t -> t.getMembers() != null && t.getMembers().stream()
+                        .anyMatch(m -> m.getUser() != null && m.getUser().getId().equals(userId)))
+                .collect(Collectors.toList());
+        List<String> myTeamNames = myTeamsList.stream()
+                .map(Team::getName).collect(Collectors.toList());
+
+        // Projects from those teams
+        List<String> myProjectNames = myTeamsList.stream()
+                .map(t -> t.getProject() != null ? t.getProject().getName() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Meetings this month that include the employee
+        long meetingsThisMonth = meetingRepository.findAllForUser(userId).stream()
+                .filter(m -> m.getStartTime() != null
+                          && !m.getStartTime().isBefore(startOfMonth)
+                          && !m.getStartTime().isAfter(endOfMonth))
+                .count();
+
+        // Performance score (latest average)
+        OptionalDouble perfScore = performanceEvaluationRepository.findAll().stream()
+                .filter(p -> p.getUser() != null
+                          && p.getUser().getId().equals(userId)
+                          && p.getScore() != null)
+                .mapToDouble(p -> p.getScore().doubleValue())
+                .average();
+
         return KpiDashboardDTO.builder()
-                .userLeaveBalance(balance)
-                .userUsedLeaveDays(usedDays)
-                .userPendingTasks(myPending)
-                .userCompletedTasks(myDone)
-                .userHoursThisMonth(hoursThisMonth)
-                .userUpcomingMeetings(upcoming)
-                .pendingLeaveRequests((long) userLeaves.stream()
-                        .filter(l -> l.getStatus() == LeaveStatus.PENDING).count())
+                .employeeName(employeeName)
+                .department(department)
+                .position(position)
+                .myTotalTasks(totalTasks)
+                .myCompletedTasks(doneTasks)
+                .myInProgressTasks(inProgressTasks)
+                .myOverdueTasks(overdueTaskCount)
+                .myLeaveBalance((long) balance)
+                .myUsedLeaveDays((long) usedDays)
+                .myPendingLeaveRequests(pendingLeaves)
+                .myTeams(myTeamNames)
+                .myProjects(myProjectNames)
+                .myMeetingsThisMonth(meetingsThisMonth)
+                .myPerformanceScore(perfScore.isPresent()
+                        ? Math.round(perfScore.getAsDouble() * 10.0) / 10.0 : null)
                 .build();
     }
 }

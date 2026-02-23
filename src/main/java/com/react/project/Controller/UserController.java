@@ -27,9 +27,8 @@ public class UserController {
         return userService.findById(id);
     }
 
-    /** Get all users – HR only */
+    /** Get all users – any authenticated user (needed for Teams, Meetings, Chat) */
     @GetMapping
-    @PreAuthorize("hasRole('HR')")
     public List<UserDTO> getAllUsers() {
         return userService.findAll();
     }

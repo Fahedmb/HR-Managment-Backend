@@ -25,7 +25,7 @@ public class Notification {
     private String message;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(100)")
     private NotificationType type;
 
     @Column(name = "`read`",nullable = false)

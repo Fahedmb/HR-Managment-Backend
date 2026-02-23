@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/leave-requests")
@@ -69,9 +70,10 @@ public class LeaveRequestController {
 
     // New Endpoint for Leave Balance
     @GetMapping("/balance")
-    public int getLeaveBalance(Authentication authentication) {
+    public Map<String, Object> getLeaveBalance(Authentication authentication) {
+        if (authentication == null) return Map.of("balance", 0);
         String username = authentication.getName();
         Long userId = userService.getUserByEmail(username).getId();
-        return service.getLeaveBalance(userId);
+        return Map.of("balance", service.getLeaveBalance(userId));
     }
 }

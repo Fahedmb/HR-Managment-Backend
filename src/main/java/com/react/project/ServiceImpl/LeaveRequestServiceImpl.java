@@ -11,6 +11,7 @@ import com.react.project.Service.LeaveRequestService;
 import com.react.project.Service.NotificationService;
 import com.react.project.Service.UserService;
 import jakarta.mail.MessagingException;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -68,14 +69,16 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 
         LeaveRequestDTO saved = convertToDTO(lr);
 
-        emailService.sendEmail(saved.getUserEmail(), "Leave Request Submitted",
-                "leaveRequestEmail", Map.of(
-                        "username", saved.getUsername(),
-                        "leaveRequestId", saved.getId(),
-                        "startDate", saved.getStartDate(),
-                        "endDate", saved.getEndDate(),
-                        "reason", saved.getReason()
-                ));
+        try {
+            emailService.sendEmail(saved.getUserEmail(), "Leave Request Submitted",
+                    "leaveRequestEmail", Map.of(
+                            "username", saved.getUsername(),
+                            "leaveRequestId", saved.getId(),
+                            "startDate", saved.getStartDate(),
+                            "endDate", saved.getEndDate(),
+                            "reason", saved.getReason()
+                    ));
+        } catch (Exception ignored) { /* email failure must not break the API */ }
 
         // Notify HR
         notificationService.create(lr.getUser().getId(),
@@ -127,12 +130,14 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
         }
 
         if (templateName != null) {
-            emailService.sendEmail(updated.getUserEmail(), subject, templateName, Map.of(
-                    "username", updated.getUsername(),
-                    "requestId", updated.getId(),
-                    "type", "Leave Request",
-                    "date", updated.getStartDate()
-            ));
+            try {
+                emailService.sendEmail(updated.getUserEmail(), subject, templateName, Map.of(
+                        "username", updated.getUsername(),
+                        "requestId", updated.getId(),
+                        "type", "Leave Request",
+                        "date", updated.getStartDate()
+                ));
+            } catch (Exception ignored) { /* email failure must not break the API */ }
             notificationService.create(lr.getUser().getId(), subject, notifType);
         }
 
