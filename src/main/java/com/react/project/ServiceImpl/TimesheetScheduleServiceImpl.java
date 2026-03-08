@@ -2,6 +2,7 @@
 package com.react.project.ServiceImpl;
 
 import com.react.project.DTO.TimesheetScheduleDTO;
+import com.react.project.Enumirator.NotificationType;
 import com.react.project.Enumirator.TimesheetStatus;
 import com.react.project.Exception.UserException;
 import com.react.project.Mapper.TimesheetScheduleMapper;
@@ -9,6 +10,7 @@ import com.react.project.Model.TimesheetSchedule;
 import com.react.project.Model.User;
 import com.react.project.Repository.TimesheetScheduleRepository;
 import com.react.project.Repository.UserRepository;
+import com.react.project.Service.NotificationService;
 import com.react.project.Service.TimesheetScheduleService;
 import org.springframework.stereotype.Service;
 import java.util.Comparator;
@@ -20,11 +22,13 @@ import java.util.stream.Collectors;
 public class TimesheetScheduleServiceImpl implements TimesheetScheduleService {
     private final TimesheetScheduleRepository repo;
     private final UserRepository userRepo;
+    private final NotificationService notificationService;
     private static final int TOTAL_HOURS_PER_WEEK = 40;
 
-    public TimesheetScheduleServiceImpl(TimesheetScheduleRepository r, UserRepository u) {
+    public TimesheetScheduleServiceImpl(TimesheetScheduleRepository r, UserRepository u, NotificationService ns) {
         this.repo = r;
         this.userRepo = u;
+        this.notificationService = ns;
     }
 
     @Override
@@ -62,8 +66,23 @@ public class TimesheetScheduleServiceImpl implements TimesheetScheduleService {
     @Override
     public TimesheetScheduleDTO updateStatus(Long id, TimesheetScheduleDTO dto) {
         TimesheetSchedule s = repo.findById(id).orElseThrow(() -> new UserException("Not found"));
-        s.setStatus(dto.getStatus());
-        return TimesheetScheduleMapper.toDTO(repo.save(s));
+        TimesheetStatus newStatus = dto.getStatus();
+        s.setStatus(newStatus);
+        TimesheetScheduleDTO saved = TimesheetScheduleMapper.toDTO(repo.save(s));
+
+        // Notify the employee about the decision
+        if (newStatus == TimesheetStatus.APPROVED) {
+            notificationService.create(
+                    s.getUser().getId(),
+                    "Your timesheet schedule has been approved.",
+                    NotificationType.SCHEDULE_APPROVED);
+        } else if (newStatus == TimesheetStatus.REJECTED) {
+            notificationService.create(
+                    s.getUser().getId(),
+                    "Your timesheet schedule has been rejected.",
+                    NotificationType.SCHEDULE_REJECTED);
+        }
+        return saved;
     }
 
     @Override
@@ -82,3 +101,4 @@ public class TimesheetScheduleServiceImpl implements TimesheetScheduleService {
         return list.stream().max(Comparator.comparing(TimesheetSchedule::getCreatedAt)).map(TimesheetScheduleMapper::toDTO);
     }
 }
+

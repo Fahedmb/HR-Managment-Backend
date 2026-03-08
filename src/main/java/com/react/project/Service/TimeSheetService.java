@@ -10,4 +10,8 @@ public interface TimeSheetService {
     TimeSheetDTO create(TimeSheetDTO dto);
     TimeSheetDTO update(Long id, TimeSheetDTO dto);
     void delete(Long id);
+    /** HR approves a timesheet entry; approverId is the HR user performing the action */
+    TimeSheetDTO approve(Long id, Long approverId);
+    /** HR rejects a timesheet entry */
+    TimeSheetDTO reject(Long id, Long approverId);
 }

@@ -22,7 +22,7 @@ public class TaskComment {
     private Task task;
 
     @ManyToOne
-    @JoinColumn(name = "author_id", nullable = false)
+    @JoinColumn(name = "author_id")
     private User author;
 
     @Column(columnDefinition = "TEXT", nullable = false)

@@ -27,7 +27,7 @@ public class Meeting {
     private String description;
 
     @ManyToOne
-    @JoinColumn(name = "organizer_id", nullable = false)
+    @JoinColumn(name = "organizer_id")
     private User organizer;
 
     @ManyToMany

@@ -20,4 +20,8 @@ public class UserDTO {
     private Role role;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Number of leave days used in the current year (tracked on the User entity). */
+    private int usedDaysThisYear;
+    /** Remaining leave balance = 30 - usedDaysThisYear. */
+    private int leaveBalance;
 }

@@ -50,6 +50,7 @@ public class SecurityConfiguration {
                                 "/api/chat/**",
                                 "/api/notifications/**",
                                 "/api/kpi/**",
+                                "/api/calendar/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**"
                         ).permitAll()

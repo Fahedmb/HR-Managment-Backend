@@ -41,7 +41,7 @@ public class Task {
     private User assignedTo;
 
     @ManyToOne
-    @JoinColumn(name = "created_by", nullable = false)
+    @JoinColumn(name = "created_by")
     private User createdBy;
 
     @Enumerated(EnumType.STRING)

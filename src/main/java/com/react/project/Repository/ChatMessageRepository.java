@@ -2,8 +2,11 @@ package com.react.project.Repository;
 
 import com.react.project.Model.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -27,4 +30,14 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     /** Count unread messages from a specific sender */
     @Query("SELECT COUNT(m) FROM ChatMessage m WHERE m.messageType='DIRECT' AND m.sender.id = :senderId AND m.recipient.id = :recipientId AND :recipientId NOT IN (SELECT u.id FROM m.readBy u)")
     long countUnread(Long senderId, Long recipientId);
+
+    @Modifying
+    @Transactional
+    @Query(value = "DELETE FROM chat_message_read_by WHERE user_id = :userId", nativeQuery = true)
+    void removeFromReadBy(@Param("userId") Long userId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM ChatMessage cm WHERE cm.sender.id = :userId OR cm.recipient.id = :userId")
+    void deleteBySenderOrRecipient(@Param("userId") Long userId);
 }

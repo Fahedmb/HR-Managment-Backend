@@ -36,6 +36,7 @@ public class TimesheetSchedule {
     private int hoursPerDay;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(50)")
     private TimesheetStatus status;
 
     private LocalDateTime createdAt;

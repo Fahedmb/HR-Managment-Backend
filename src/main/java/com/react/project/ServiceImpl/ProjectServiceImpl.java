@@ -16,6 +16,7 @@ import com.react.project.Service.NotificationService;
 import com.react.project.Service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -106,8 +107,22 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
-        projectRepository.deleteById(id);
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new UserException("Project not found"));
+
+        // Delete task comments for all tasks in this project, then the tasks themselves.
+        // This prevents FK constraint violations when cascade-deleting teams/tasks.
+        List<com.react.project.Model.Task> tasks = taskRepository.findByProjectId(id);
+        for (com.react.project.Model.Task t : tasks) {
+            t.getComments().clear();          // orphanRemoval on Task.comments handles DB delete
+            t.setTeam(null);                  // detach from team so team cascade doesn't conflict
+        }
+        taskRepository.deleteAll(tasks);
+        taskRepository.flush();               // ensure tasks are gone before teams are cascade-deleted
+
+        projectRepository.delete(project);
     }
 
     public ProjectDTO toDTO(Project p) {

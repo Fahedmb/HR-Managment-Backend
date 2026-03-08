@@ -1,10 +1,12 @@
 package com.react.project.Controller;
 
+import com.react.project.DTO.RegisterRequest;
 import com.react.project.DTO.UserDTO;
 import com.react.project.Enumirator.Role;
 import com.react.project.Service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +22,18 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+
+    /**
+     * HR creates a new user (admin flow — avoids the /auth/register JWT side-effects).
+     * The response only contains the created UserDTO (no token for the new user).
+     */
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('HR')")
+    public ResponseEntity<UserDTO> createUser(@RequestBody RegisterRequest request) {
+        UserDTO created = userService.register(request).getUser();
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
 
     /** Any authenticated user can fetch themselves or others */
     @GetMapping("/{id}")

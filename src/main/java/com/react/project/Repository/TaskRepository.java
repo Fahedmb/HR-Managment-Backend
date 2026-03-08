@@ -3,8 +3,11 @@ package com.react.project.Repository;
 import com.react.project.Enumirator.TaskStatus;
 import com.react.project.Model.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -24,4 +27,14 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findTasksDueBetween(LocalDate from, LocalDate to);
 
     long countByProjectIdAndStatus(Long projectId, TaskStatus status);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Task t SET t.assignedTo = null WHERE t.assignedTo.id = :userId")
+    void nullifyAssignedTo(@Param("userId") Long userId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Task t SET t.createdBy = null WHERE t.createdBy.id = :userId")
+    void nullifyCreatedBy(@Param("userId") Long userId);
 }

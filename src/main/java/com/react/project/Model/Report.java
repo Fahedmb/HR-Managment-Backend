@@ -18,7 +18,7 @@ public class Report {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "generated_by", nullable = false)
+    @JoinColumn(name = "generated_by")
     private User generatedBy;
 
     @Enumerated(EnumType.STRING)

@@ -4,8 +4,10 @@ package com.react.project.Controller;
 import com.react.project.DTO.TimeSheetDTO;
 import com.react.project.Service.TimeSheetService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/time-sheets")
@@ -47,4 +49,27 @@ public class TimeSheetController {
     public void delete(@PathVariable Long id) {
         service.delete(id);
     }
+
+    /**
+     * HR approves a timesheet entry.
+     * Body: { "approverId": 1 }
+     */
+    @PatchMapping("/{id}/approve")
+    @PreAuthorize("hasRole('HR')")
+    public TimeSheetDTO approve(@PathVariable Long id,
+                                @RequestBody Map<String, Long> body) {
+        return service.approve(id, body.get("approverId"));
+    }
+
+    /**
+     * HR rejects a timesheet entry.
+     * Body: { "approverId": 1 }
+     */
+    @PatchMapping("/{id}/reject")
+    @PreAuthorize("hasRole('HR')")
+    public TimeSheetDTO reject(@PathVariable Long id,
+                               @RequestBody Map<String, Long> body) {
+        return service.reject(id, body.get("approverId"));
+    }
 }
+

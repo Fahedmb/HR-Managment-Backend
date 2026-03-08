@@ -23,7 +23,7 @@ public class PerformanceEvaluation {
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "evaluator_id", nullable = false)
+    @JoinColumn(name = "evaluator_id")
     private User evaluator;
 
     @Column(nullable = false)

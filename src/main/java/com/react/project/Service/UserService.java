@@ -24,5 +24,6 @@ public interface UserService {
     User getUserEntityById(Long userId);
     UserDTO getUserById(Long userId);
     void incrementUsedLeaveDays(Long userId, int days);
+    void decrementUsedLeaveDays(Long userId, int days);
     AuthenticationResponse authenticate(AuthenticationRequest request);
 }

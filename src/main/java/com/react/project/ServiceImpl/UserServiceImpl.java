@@ -7,7 +7,7 @@ import com.react.project.DTO.RegisterResponse;
 import com.react.project.Enumirator.Role;
 import com.react.project.Exception.UserException;
 import com.react.project.Model.User;
-import com.react.project.Repository.UserRepository;
+import com.react.project.Repository.*;
 import com.react.project.Service.EmailService;
 import com.react.project.Service.UserService;
 import com.react.project.DTO.UserDTO;
@@ -19,6 +19,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +35,21 @@ public class UserServiceImpl implements UserService {
     private final JwtService jwtService;
     @Autowired
     private EmailService emailService;
+
+    // Repos needed to cleanly cascade-delete a user
+    private final NotificationRepository       notificationRepository;
+    private final LeaveRequestRepository       leaveRequestRepository;
+    private final TimeSheetRepository          timeSheetRepository;
+    private final TimesheetScheduleRepository  timesheetScheduleRepository;
+    private final TeamMemberRepository         teamMemberRepository;
+    private final TaskRepository               taskRepository;
+    private final TaskCommentRepository        taskCommentRepository;
+    private final MeetingRepository            meetingRepository;
+    private final PerformanceEvaluationRepository performanceEvaluationRepository;
+    private final ChatMessageRepository        chatMessageRepository;
+    private final ReportRepository             reportRepository;
+    private final TeamRepository               teamRepository;
+    private final ProjectRepository            projectRepository;
 
     @Override
     public UserDTO findById(Long id) {
@@ -52,6 +68,14 @@ public class UserServiceImpl implements UserService {
     public void incrementUsedLeaveDays(Long userId, int days) {
         User user = getUserEntityById(userId);
         user.setUsedDaysThisYear(user.getUsedDaysThisYear() + days);
+        userRepository.save(user);
+    }
+
+    @Override
+    public void decrementUsedLeaveDays(Long userId, int days) {
+        User user = getUserEntityById(userId);
+        int updated = Math.max(0, user.getUsedDaysThisYear() - days);
+        user.setUsedDaysThisYear(updated);
         userRepository.save(user);
     }
 
@@ -131,8 +155,10 @@ public class UserServiceImpl implements UserService {
 
         try {
             emailService.sendEmail(user.getEmail(), "Welcome to HR Management System!", "registrationEmail", templateModel);
-        } catch (MessagingException e) {
-            // Log but don't fail registration
+        } catch (Exception e) {
+            // Catch ALL exceptions (including Spring MailAuthenticationException which extends
+            // RuntimeException, not MessagingException) so that email failures never fail the
+            // registration/create flow.
             System.err.println("Failed to send welcome email: " + e.getMessage());
         }
 
@@ -190,7 +216,50 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new UserException("User not found");
+        }
+
+        // 1. Remove user from chat_message_read_by join table
+        chatMessageRepository.removeFromReadBy(id);
+        // 2. Delete all chat messages sent/received by this user
+        chatMessageRepository.deleteBySenderOrRecipient(id);
+        // 3. Delete all notifications received by this user
+        notificationRepository.deleteByRecipientId(id);
+        // 4. Nullify approvedBy references in leave requests
+        leaveRequestRepository.nullifyApprovedBy(id);
+        // 5. Delete leave requests owned by this user
+        leaveRequestRepository.deleteByUserId(id);
+        // 6. Nullify approvedBy references in timesheets
+        timeSheetRepository.nullifyApprovedBy(id);
+        // 7. Delete timesheets owned by this user
+        timeSheetRepository.deleteByUserId(id);
+        // 8. Delete timesheet schedules for this user
+        timesheetScheduleRepository.deleteByUserId(id);
+        // 9. Remove from all meeting attendee lists
+        meetingRepository.removeFromAttendees(id);
+        // 10. Nullify organizer on meetings they organised (meeting remains but organizer = null)
+        meetingRepository.nullifyOrganizer(id);
+        // 11. Nullify author on task comments (comment stays, author shows as deleted)
+        taskCommentRepository.nullifyAuthor(id);
+        // 12. Nullify assigned_to and created_by on tasks
+        taskRepository.nullifyAssignedTo(id);
+        taskRepository.nullifyCreatedBy(id);
+        // 13. Nullify evaluator on performance evaluations
+        performanceEvaluationRepository.nullifyEvaluator(id);
+        // 14. Delete performance evaluations where this user is the subject
+        performanceEvaluationRepository.deleteByUserId(id);
+        // 15. Remove from team memberships
+        teamMemberRepository.deleteByUserId(id);
+        // 16. Nullify report generator references
+        reportRepository.nullifyGeneratedBy(id);
+        // 17. Nullify team leader references
+        teamRepository.nullifyTeamLeader(id);
+        // 18. Nullify project createdBy references
+        projectRepository.nullifyCreatedBy(id);
+        // 19. Finally delete the user
         userRepository.deleteById(id);
     }
 
@@ -213,6 +282,8 @@ public class UserServiceImpl implements UserService {
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .usedDaysThisYear(user.getUsedDaysThisYear())
+                .leaveBalance(30 - user.getUsedDaysThisYear())
                 .build();
     }
 }
